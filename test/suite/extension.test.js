@@ -1,18 +1,14 @@
 const assert = require("assert");
 const { before, afterEach } = require("mocha");
-const path = require("path");
-
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
 const vscode = require("vscode");
-// const myExtension = require("../../extension");
 
 suite("Extension Test Suite", function() {
-  let setting, document, editor;
+  let document, editor;
   this.timeout(10000);
   before(async () => {
-    setting = vscode.Uri.parse("untitled:./temp/test.js");
-    document = await vscode.workspace.openTextDocument(setting);
+    document = await vscode.workspace.openTextDocument({
+      language: "javascript"
+    });
     editor = await vscode.window.showTextDocument(document);
   });
 
@@ -26,16 +22,34 @@ suite("Extension Test Suite", function() {
     assertCode("return (a => console.log(a) || a)(x);");
   });
 
+  test("Reverts a simple return statement", async () => {
+    await setCode("return (a => console.log(a) || a)(x);");
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode("return x;");
+  });
+
   test("Converts a one-line object return statement", async () => {
     await setCode("return { x: 1 };");
     await vscode.commands.executeCommand("extension.logReturnValue");
     assertCode("return (a => console.log(a) || a)({ x: 1 });");
   });
 
+  test("Reverts a one-line object return statement", async () => {
+    await setCode("return (a => console.log(a) || a)({ x: 1 });");
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode("return { x: 1 };");
+  });
+
   test("Converts a one-line function return statement", async () => {
     await setCode("return () => { return x; });");
     await vscode.commands.executeCommand("extension.logReturnValue");
     assertCode("return (a => console.log(a) || a)(() => { return x; }));");
+  });
+
+  test("Reverts a one-line function return statement", async () => {
+    await setCode("return (a => console.log(a) || a)(() => { return x; }));");
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode("return () => { return x; });");
   });
 
   test("Converts a selection of a one-line return statement", async () => {
@@ -45,11 +59,25 @@ suite("Extension Test Suite", function() {
     assertCode("return (a => console.log(a) || a)(x);");
   });
 
+  test("Reverts a selection of a one-line return statement", async () => {
+    await setCode("return (a => console.log(a) || a)(x);");
+    editor.selection = new vscode.Selection(0, 7, 0, 36);
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode("return x;");
+  });
+
   test("Converts a selection of a one-line assignment statement", async () => {
     await setCode("let y = x;");
     editor.selection = new vscode.Selection(0, 8, 0, 9);
     await vscode.commands.executeCommand("extension.logReturnValue");
     assertCode("let y = (a => console.log(a) || a)(x);");
+  });
+
+  test("Reverts a selection of a one-line assignment statement", async () => {
+    await setCode("let y = (a => console.log(a) || a)(x);");
+    editor.selection = new vscode.Selection(0, 8, 0, 37);
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode("let y = x;");
   });
 
   test("Converts a selection of a multi-line return statement", async () => {
@@ -65,11 +93,32 @@ suite("Extension Test Suite", function() {
     await vscode.commands.executeCommand("extension.logReturnValue");
     assertCode(
       `
-		  return (a => console.log(a) || a)({
+			return (a => console.log(a) || a)({
 				x: 1,
 				y: 2
 			});
-		  `
+			`
+    );
+  });
+
+  test("Reverts a selection of a multi-line return statement", async () => {
+    await setCode(
+      `
+			return (a => console.log(a) || a)({
+				x: 1,
+				y: 2
+			});
+			`
+    );
+    editor.selection = new vscode.Selection(1, 10, 4, 5);
+    await vscode.commands.executeCommand("extension.logReturnValue");
+    assertCode(
+      `
+			return {
+				x: 1,
+				y: 2
+			};
+			`
     );
   });
 
@@ -80,7 +129,7 @@ suite("Extension Test Suite", function() {
   }
 
   function assertCode(code) {
-    assert.equal(code, editor.document.getText());
+    assert.equal(editor.document.getText(), code);
   }
 
   async function clearEditor() {

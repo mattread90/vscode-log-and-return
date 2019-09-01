@@ -1,6 +1,7 @@
 const vscode = require("vscode");
 
 const returnValueRegExp = /^(\s*)return[\s\n]+([\s\S]+);[\s\n]*$/g;
+const revertRegExp = /^(\s*(?:return)?\s*)(?:\(a => console\.log\(a\) \|\| a\)\()([\s\S]+)\)(\s*;*\s*)$/g;
 
 /**
  * @param {vscode.ExtensionContext} context
@@ -25,6 +26,18 @@ function activate(context) {
       const range = textSelection
         ? new vscode.Range(selection.start, selection.end)
         : currentLine.range;
+
+      const revertMatch = revertRegExp.exec(returnStatement);
+      revertRegExp.lastIndex = 0;
+      if (revertMatch) {
+        const prefix = revertMatch[1];
+        const statement = revertMatch[2];
+        const suffix = revertMatch[3];
+        await editor.edit(editBuilder => {
+          editBuilder.replace(range, `${prefix}${statement}${suffix}`);
+        });
+        return;
+      }
 
       const match = returnValueRegExp.exec(returnStatement);
       returnValueRegExp.lastIndex = 0;
