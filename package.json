@@ -4,6 +4,7 @@
   "description": "Log the return value of a function to the console",
   "version": "0.0.1",
   "publisher": "darkmattr",
+  "repository": "https://github.com/mattread90/vscode-log-and-return",
   "engines": {
     "vscode": "^1.37.0"
   },
