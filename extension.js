@@ -8,7 +8,7 @@ const returnValueRegExp = /^(\s*)return[\s\n]+([\s\S]+);[\s\n]*$/g;
 function activate(context) {
   const logReturnValue = vscode.commands.registerCommand(
     "extension.logReturnValue",
-    function() {
+    async function() {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showInformationMessage("No editor open!");
@@ -31,10 +31,17 @@ function activate(context) {
       if (match) {
         const indentation = match[1];
         const returnValue = match[2];
-        editor.edit(editBuilder => {
+        await editor.edit(editBuilder => {
           editBuilder.replace(
             range,
             `${indentation}return (a => console.log(a) || a)(${returnValue});`
+          );
+        });
+      } else if (textSelection) {
+        await editor.edit(editBuilder => {
+          editBuilder.replace(
+            range,
+            `(a => console.log(a) || a)(${textSelection})`
           );
         });
       } else {
